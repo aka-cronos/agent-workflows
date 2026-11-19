@@ -14,6 +14,15 @@ from common import (
 )
 
 
+def risk_grade(description: str | None) -> str:
+    """The grade at the start of a `risk` description, past a carry prefix
+    (`carried from <sha>: <reason> · low: ...`)."""
+    text = (description or "").strip()
+    if text.startswith("carried from"):
+        text = text.partition(" · ")[2]
+    return text.split(":", 1)[0].strip().lower()
+
+
 def blockers(pr: dict, statuses: dict[str, dict], checks: str) -> list[str]:
     """Why this pull request may not merge on its own; empty means it may."""
     reasons = []
@@ -32,8 +41,7 @@ def blockers(pr: dict, statuses: dict[str, dict], checks: str) -> list[str]:
     interrogate = statuses.get("review/interrogate")
     if interrogate and interrogate["state"] != "success":
         reasons.append(f"review/interrogate {interrogate['state']}")
-    risk = (statuses.get("risk", {}).get("description") or "").strip().lower()
-    if not risk.startswith("low"):
+    if risk_grade(statuses.get("risk", {}).get("description")) != "low":
         reasons.append("risk is not low")
     return reasons
 

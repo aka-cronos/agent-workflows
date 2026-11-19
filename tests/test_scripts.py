@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 from agents_block import SUMMARY_MARK, Agent, parse_mark, rebuild  # noqa: E402
 from carry import carried_description, design_only_carry, patch_id, statuses_to_carry  # noqa: E402
 from common import match_paths, summarize_checks  # noqa: E402
-from low_risk_merge import blockers  # noqa: E402
+from low_risk_merge import blockers, risk_grade  # noqa: E402
 from zones import ChangedFile, classify, comment_only  # noqa: E402
 
 PROCESS = {
@@ -141,6 +141,17 @@ class LowRiskMerge(unittest.TestCase):
 
     def test_merges_when_all_green_and_low(self):
         self.assertEqual(blockers({"labels": []}, self.statuses(), "green"), [])
+
+    def test_risk_grade(self):
+        self.assertEqual(risk_grade("low: small"), "low")
+        self.assertEqual(risk_grade("carried from abc1234: clean rebase · low: small"), "low")
+        self.assertEqual(risk_grade("carried from abc1234: clean rebase"), "")
+        self.assertEqual(risk_grade("lower than expected"), "lower than expected")
+        self.assertEqual(risk_grade(None), "")
+
+    def test_merges_a_carried_low_grade(self):
+        statuses = self.statuses("carried from abc1234: clean rebase · low: small")
+        self.assertEqual(blockers({"labels": []}, statuses, "green"), [])
 
     def test_waits(self):
         self.assertIn("risk is not low", blockers({"labels": []}, self.statuses("medium: x"), "green"))
