@@ -1,0 +1,24 @@
+# Copy to .github/workflows/agent-low-risk-merge.yml in the project, in the
+# same pull request that sets "lowRiskLane": true. Until then it would only
+# start runs that end without merging.
+name: Agent low-risk merge
+
+on:
+  status:
+  workflow_run:
+    workflows: [CI, Agent zones, Agent carry]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  merge:
+    uses: aka-cronos/agent-workflows/.github/workflows/low-risk-merge.yml@v1
+    permissions:
+      checks: read
+      contents: write
+      pull-requests: write
+      statuses: read
+    # Optional: merge with a token whose merges start the project's workflows.
+    # secrets:
+    #   merge_token: ${{ secrets.AGENT_MERGE_TOKEN }}
