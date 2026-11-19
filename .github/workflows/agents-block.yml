@@ -1,0 +1,47 @@
+name: Agents block
+
+# Rebuilds the "## Agents" section of a pull request body: adds a row for each
+# role and model found in the agents' marked comments, and rewrites the
+# summary line from the process statuses on the head commit.
+
+on:
+  workflow_call:
+    inputs:
+      workflows-ref:
+        description: Ref of agent-workflows whose scripts run. Keep it equal to the ref after `@` in `uses:`.
+        type: string
+        default: v1
+      workflows-repository:
+        description: Repository that holds the scripts, for forks of agent-workflows.
+        type: string
+        default: aka-cronos/agent-workflows
+
+jobs:
+  agents-block:
+    name: agents block
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: write
+      statuses: read
+    concurrency:
+      group: agent-agents-block-${{ github.event.issue.number || github.event.pull_request.number || github.event.sha }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out the workflow scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.workflows-repository }}
+          ref: ${{ inputs.workflows-ref }}
+          path: .agent-workflows
+          persist-credentials: false
+      - name: Rebuild the Agents section
+        run: python3 .agent-workflows/scripts/agents_block.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.sha }}

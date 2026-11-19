@@ -1,0 +1,49 @@
+name: Low-risk merge
+
+# Squash-merges each open pull request whose head commit is green, carries no
+# zone or exempt label, and has a `risk` status whose description starts
+# with "low". Does nothing while `lowRiskLane` is not true in
+# .agents/process.json on the default branch.
+
+on:
+  workflow_call:
+    inputs:
+      workflows-ref:
+        description: Ref of agent-workflows whose scripts run. Keep it equal to the ref after `@` in `uses:`.
+        type: string
+        default: v1
+      workflows-repository:
+        description: Repository that holds the scripts, for forks of agent-workflows.
+        type: string
+        default: aka-cronos/agent-workflows
+    secrets:
+      merge_token:
+        description: Token used to merge. Optional; without it the merge uses GITHUB_TOKEN and no workflow runs on the merge commit.
+        required: false
+
+jobs:
+  merge:
+    name: low-risk merge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      checks: read
+      contents: write
+      pull-requests: write
+      statuses: read
+    concurrency:
+      group: agent-low-risk-merge
+      cancel-in-progress: false
+    steps:
+      - name: Check out the workflow scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.workflows-repository }}
+          ref: ${{ inputs.workflows-ref }}
+          path: .agent-workflows
+          persist-credentials: false
+      - name: Merge low-risk pull requests
+        run: python3 .agent-workflows/scripts/low_risk_merge.py
+        env:
+          GH_TOKEN: ${{ secrets.merge_token || github.token }}
+          REPO: ${{ github.repository }}

@@ -1,0 +1,46 @@
+name: Status carry
+
+# Runs when a pull request's checks finish. Carries every process status over
+# a clean rebase (same patch id), and `verify` over a design-only round (spec
+# approved, no UI file touched), once every check on the new commit is green.
+
+on:
+  workflow_call:
+    inputs:
+      workflows-ref:
+        description: Ref of agent-workflows whose scripts run. Keep it equal to the ref after `@` in `uses:`.
+        type: string
+        default: v1
+      workflows-repository:
+        description: Repository that holds the scripts, for forks of agent-workflows.
+        type: string
+        default: aka-cronos/agent-workflows
+
+jobs:
+  carry:
+    name: carry
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      checks: read
+      contents: read
+      pull-requests: read
+      statuses: write
+    concurrency:
+      group: agent-carry-${{ github.event.workflow_run.head_sha }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out the workflow scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.workflows-repository }}
+          ref: ${{ inputs.workflows-ref }}
+          path: .agent-workflows
+          persist-credentials: false
+      - name: Carry statuses
+        run: python3 .agent-workflows/scripts/carry.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
