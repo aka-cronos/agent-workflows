@@ -1,0 +1,47 @@
+name: Zones
+
+# Labels a pull request with the sensitive zones and UI it touches
+# (zone:money, zone:access, zone:migrations, zone:ui) and marks dependency
+# updates and docs-only changes as exempt: label `exempt` and the four
+# required process statuses set to success.
+
+on:
+  workflow_call:
+    inputs:
+      workflows-ref:
+        description: Ref of agent-workflows whose scripts run. Keep it equal to the ref after `@` in `uses:`.
+        type: string
+        default: v1
+      workflows-repository:
+        description: Repository that holds the scripts, for forks of agent-workflows.
+        type: string
+        default: aka-cronos/agent-workflows
+
+jobs:
+  zones:
+    name: zones
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      statuses: write
+    concurrency:
+      group: agent-zones-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Check out the workflow scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.workflows-repository }}
+          ref: ${{ inputs.workflows-ref }}
+          path: .agent-workflows
+          persist-credentials: false
+      - name: Label zones and mark exemptions
+        run: python3 .agent-workflows/scripts/zones.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
